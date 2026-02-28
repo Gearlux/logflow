@@ -33,6 +33,8 @@ pipeline {
                 }
                 stage('Flake8') {
                     steps {
+                        // Clean up previous reports
+                        sh "rm -f flake8.txt flake8-report.xml"
                         // Use || true to prevent the stage from stopping before the report is generated
                         sh "${VENV_BIN}/flake8 logflow tests examples --tee --output-file=flake8.txt || true"
                         // Convert report to JUnit XML
