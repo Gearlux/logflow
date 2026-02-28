@@ -6,6 +6,7 @@ from typing import Any, Optional, Union
 
 from loguru import logger
 
+from logflow.config import load_config
 from logflow.discovery import determine_script_name, get_rank
 from logflow.intercept import setup_interception
 
@@ -17,28 +18,60 @@ _log_file: Optional[Path] = None
 def configure_logging(
     log_dir: Optional[Union[str, Path]] = None,
     script_name: Optional[str] = None,
-    file_level: str = "DEBUG",
-    console_level: str = "INFO",
-    rotation_on_startup: bool = True,
-    retention: int = 5,
-    enqueue: bool = True,
+    file_level: Optional[str] = None,
+    console_level: Optional[str] = None,
+    rotation_on_startup: Optional[bool] = None,
+    retention: Optional[int] = None,
+    enqueue: Optional[bool] = None,
 ) -> None:
     """
     Configure the global LogFlow system.
-
-    Args:
-        log_dir: Directory for log files. Defaults to './logs'.
-        script_name: Base name for log files. Auto-detected if None.
-        file_level: Minimum level for file logging.
-        console_level: Minimum level for console logging.
-        rotation_on_startup: If True, archives existing logs on startup.
-        retention: Number of archived logs to keep.
-        enqueue: If True, uses a background process for logging (recommended for MP).
+    Configuration priority: function args > env vars > file config > defaults.
     """
     global _configured, _log_file
 
+    # 1. Load configuration from files (lowest priority)
+    file_cfg = load_config()
+
+    # 2. Merge with defaults and environment variables
+    # Values are resolved in order: Args -> Env -> Config File -> Default
+    log_dir_val = log_dir or os.getenv("LOGFLOW_DIR") or file_cfg.get("log_dir") or "./logs"
+
+    script_name = script_name or os.getenv("LOGFLOW_SCRIPT_NAME") or file_cfg.get("script_name")
+
+    file_level_val = file_level or os.getenv("LOGFLOW_FILE_LEVEL") or file_cfg.get("file_level") or "DEBUG"
+
+    console_level_val = console_level or os.getenv("LOGFLOW_CONSOLE_LEVEL") or file_cfg.get("console_level") or "INFO"
+
+    rotation_on_startup_val = (
+        rotation_on_startup
+        if rotation_on_startup is not None
+        else (
+            os.getenv("LOGFLOW_STARTUP_ROTATION", "").lower() == "true"
+            if os.getenv("LOGFLOW_STARTUP_ROTATION")
+            else file_cfg.get("rotation_on_startup", True)
+        )
+    )
+
+    retention_val = (
+        retention
+        or (int(os.getenv("LOGFLOW_RETENTION")) if os.getenv("LOGFLOW_RETENTION") else None)
+        or file_cfg.get("retention")
+        or 5
+    )
+
+    enqueue_val = (
+        enqueue
+        if enqueue is not None
+        else (
+            os.getenv("LOGFLOW_ENQUEUE", "").lower() == "true"
+            if os.getenv("LOGFLOW_ENQUEUE")
+            else file_cfg.get("enqueue", True)
+        )
+    )
+
     # Basic setup
-    log_dir_path = Path(log_dir) if log_dir else Path(os.getenv("LOGFLOW_DIR", "./logs"))
+    log_dir_path = Path(log_dir_val)
     log_dir_path.mkdir(parents=True, exist_ok=True)
 
     # Determine script name and rank
@@ -67,17 +100,17 @@ def configure_logging(
         )
         logger.add(
             sys.stderr,
-            level=console_level.upper(),
+            level=console_level_val.upper(),
             format=console_format,
             colorize=True,
-            enqueue=enqueue,
+            enqueue=enqueue_val,
         )
 
     # 2. File Handler
     _log_file = log_dir_path / f"{script_name}.log"
 
     # Handle Startup Rotation (Only on absolute Main Process at Rank 0)
-    if rotation_on_startup and is_main_process and is_rank_zero and not has_rotated and _log_file.exists():
+    if rotation_on_startup_val and is_main_process and is_rank_zero and not has_rotated and _log_file.exists():
         try:
             mtime = _log_file.stat().st_mtime
             ts = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d_%H-%M-%S")
@@ -90,7 +123,7 @@ def configure_logging(
                 key=lambda p: p.stat().st_mtime,
                 reverse=True,
             )
-            for old in archives[retention:]:
+            for old in archives[retention_val:]:
                 old.unlink()
 
             # Signal to all future children that rotation is done
@@ -109,11 +142,11 @@ def configure_logging(
 
     logger.add(
         str(_log_file),
-        level=file_level.upper(),
+        level=file_level_val.upper(),
         format=file_format,
-        enqueue=enqueue,
+        enqueue=enqueue_val,
         rotation="10 MB",  # Built-in size rotation
-        retention=retention,
+        retention=retention_val,
         backtrace=True,
         diagnose=True,
     )

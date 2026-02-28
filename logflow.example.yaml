@@ -1,0 +1,48 @@
+# LogFlow: Example Configuration File
+# This file illustrates all available configuration options for LogFlow.
+# You can use this as a template for your project's logflow.yaml or ~/.config/logflow/config.yaml.
+
+# --- General Settings ---
+
+# Directory where log files will be stored.
+# Default: "./logs"
+# Env: LOGFLOW_DIR
+log_dir: "./logs"
+
+# Base name for the log file (e.g., training.log).
+# If omitted, LogFlow will auto-detect the name of the running script.
+# Env: LOGFLOW_SCRIPT_NAME
+script_name: "my_app"
+
+# Use a background process for logging. 
+# Strongly recommended for multiprocess (ML) environments to prevent I/O blocking.
+# Default: true
+# Env: LOGFLOW_ENQUEUE
+enqueue: true
+
+# --- Rotation & Retention ---
+
+# Archive the existing log file on script startup by renaming it with a timestamp.
+# This ensures every training run gets a fresh log file.
+# Default: true
+# Env: LOGFLOW_STARTUP_ROTATION
+rotation_on_startup: true
+
+# The number of archived log files to keep before deleting the oldest ones.
+# Default: 5
+# Env: LOGFLOW_RETENTION
+retention: 5
+
+# --- Log Levels ---
+
+# Minimum level for logs written to the persistent file.
+# Options: TRACE, DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL
+# Default: "DEBUG"
+# Env: LOGFLOW_FILE_LEVEL
+file_level: "DEBUG"
+
+# Minimum level for logs displayed in the console.
+# Options: TRACE, DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL
+# Default: "INFO"
+# Env: LOGFLOW_CONSOLE_LEVEL
+console_level: "INFO"

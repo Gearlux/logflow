@@ -2,17 +2,20 @@ pipeline {
     agent any
 
     environment {
-        // Path to the virtual environment relative to the Jenkins workspace
-        VENV_BIN = "${WORKSPACE}/../.venv/bin"
-        PYTHONPATH = "${WORKSPACE}/logflow"
+        // Local virtual environment within the Jenkins workspace for portability
+        VENV_PATH = "${WORKSPACE}/.venv"
+        VENV_BIN = "${VENV_PATH}/bin"
     }
 
     stages {
         stage('Initialize') {
             steps {
-                echo 'Initializing Workspace...'
-                // Ensure the environment is set up (usually done by setup script)
-                sh "${VENV_BIN}/pip install -e ./logflow[dev]"
+                echo 'Creating Isolated Virtual Environment...'
+                sh "python3 -m venv ${VENV_PATH}"
+                
+                echo 'Installing Dependencies in Editable Mode...'
+                sh "${VENV_BIN}/pip install --upgrade pip"
+                sh "${VENV_BIN}/pip install -e .[dev]"
             }
         }
 
@@ -20,17 +23,17 @@ pipeline {
             parallel {
                 stage('Black') {
                     steps {
-                        sh "${VENV_BIN}/black --check logflow"
+                        sh "${VENV_BIN}/black --check logflow tests examples"
                     }
                 }
                 stage('Isort') {
                     steps {
-                        sh "${VENV_BIN}/isort --check-only logflow"
+                        sh "${VENV_BIN}/isort --check-only logflow tests examples"
                     }
                 }
                 stage('Flake8') {
                     steps {
-                        sh "${VENV_BIN}/flake8 logflow"
+                        sh "${VENV_BIN}/flake8 logflow tests examples"
                     }
                 }
             }
@@ -38,13 +41,13 @@ pipeline {
 
         stage('Type Check') {
             steps {
-                sh "${VENV_BIN}/mypy logflow"
+                sh "${VENV_BIN}/mypy logflow tests examples"
             }
         }
 
         stage('Unit Tests') {
             steps {
-                sh "${VENV_BIN}/pytest logflow/tests"
+                sh "${VENV_BIN}/pytest tests"
             }
         }
     }

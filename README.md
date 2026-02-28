@@ -36,6 +36,42 @@ logger.debug("Hyperparameters: batch_size=32, lr=0.001")
 logger.success("Model checkpoint saved!")
 ```
 
+## Configuration
+LogFlow supports a hierarchical configuration system that allows you to manage settings across different projects and environments.
+
+### 1. Configuration Priority
+Settings are resolved in the following order (highest to lowest):
+1.  **Function Arguments** (passed to `configure_logging()`)
+2.  **Environment Variables** (prefixed with `LOGFLOW_`)
+3.  **Local `logflow.yaml` / `logflow.yml`**
+4.  **Local `pyproject.toml`** (under `[tool.logflow]`)
+5.  **XDG User Config** (`~/.config/logflow/config.yaml`)
+6.  **Defaults**
+
+### 2. Usage Examples
+
+#### via `pyproject.toml`
+```toml
+[tool.logflow]
+log_dir = "./custom_logs"
+console_level = "DEBUG"
+retention = 10
+```
+
+#### via `logflow.yaml`
+```yaml
+log_dir: "./experiment_logs"
+file_level: "TRACE"
+enqueue: true
+rotation_on_startup: true
+```
+
+#### via Environment Variables
+```bash
+export LOGFLOW_DIR="/var/log/myapp"
+export LOGFLOW_CONSOLE_LEVEL="ERROR"
+```
+
 ## Distributed Training (DDP/SLURM)
 LogFlow handles ranks automatically. No need to wrap your log calls in `if rank == 0:`.
 ```python
