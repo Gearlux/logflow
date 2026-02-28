@@ -1,11 +1,9 @@
-import os
-import shutil
 from pathlib import Path
 
 from logflow import configure_logging, get_logger, shutdown_logging
 
 
-def test_configure_and_log(tmp_path):
+def test_configure_and_log(tmp_path: Path) -> None:
     log_dir = tmp_path / "logs"
     configure_logging(log_dir=log_dir, script_name="test_run")
 
@@ -23,7 +21,7 @@ def test_configure_and_log(tmp_path):
     assert "Test message" in content
 
 
-def test_startup_rotation(tmp_path):
+def test_startup_rotation(tmp_path: Path) -> None:
     log_dir = tmp_path / "rotation_test"
     log_dir.mkdir()
     log_file = log_dir / "rotate.log"

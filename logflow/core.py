@@ -55,7 +55,7 @@ def configure_logging(
 
     retention_val = (
         retention
-        or (int(os.getenv("LOGFLOW_RETENTION")) if os.getenv("LOGFLOW_RETENTION") else None)
+        or (int(os.getenv("LOGFLOW_RETENTION", "0")) if os.getenv("LOGFLOW_RETENTION") else None)
         or file_cfg.get("retention")
         or 5
     )

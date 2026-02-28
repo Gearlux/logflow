@@ -33,14 +33,15 @@ pipeline {
                 }
                 stage('Flake8') {
                     steps {
-                        // Generate flake8 output in a format that can be converted to JUnit XML
-                        sh "${VENV_BIN}/flake8 logflow tests examples --tee --output-file=flake8.txt"
-                        // Convert flake8.txt to JUnit XML for Jenkins reporting
-                        sh "${VENV_BIN}/flake8_junit flake8.txt flake8-report.xml"
+                        // Use || true to prevent the stage from stopping before the report is generated
+                        sh "${VENV_BIN}/flake8 logflow tests examples --tee --output-file=flake8.txt || true"
+                        // Convert report to JUnit XML
+                        sh "if [ -f flake8.txt ]; then ${VENV_BIN}/flake8_junit flake8.txt flake8-report.xml; fi"
                     }
                     post {
                         always {
-                            junit 'flake8-report.xml'
+                            // Archive the report if it was generated
+                            junit allowEmptyResults: true, testResults: 'flake8-report.xml'
                         }
                     }
                 }

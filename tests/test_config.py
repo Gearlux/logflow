@@ -4,7 +4,7 @@ from pathlib import Path
 from logflow.config import get_xdg_config_dir, load_config
 
 
-def test_load_config_pyproject(tmp_path):
+def test_load_config_pyproject(tmp_path: Path) -> None:
     # Mock pyproject.toml
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text("""
@@ -24,7 +24,7 @@ retention = 10
         os.chdir(old_cwd)
 
 
-def test_load_config_yaml_overrides_toml(tmp_path):
+def test_load_config_yaml_overrides_toml(tmp_path: Path) -> None:
     # Mock pyproject.toml
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text("[tool.logflow]\nconsole_level = 'INFO'")
@@ -42,7 +42,7 @@ def test_load_config_yaml_overrides_toml(tmp_path):
         os.chdir(old_cwd)
 
 
-def test_xdg_config_path():
+def test_xdg_config_path() -> None:
     # Mock XDG_CONFIG_HOME
     os.environ["XDG_CONFIG_HOME"] = "/tmp/xdg"
     assert str(get_xdg_config_dir()) == "/tmp/xdg/logflow"

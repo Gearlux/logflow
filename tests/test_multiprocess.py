@@ -1,12 +1,11 @@
 import multiprocessing as mp
 import os
-import time
 from pathlib import Path
 
 from logflow import configure_logging, get_logger, shutdown_logging
 
 
-def worker(rank: int, log_dir: Path, script_name: str):
+def worker(rank: int, log_dir: Path, script_name: str) -> None:
     os.environ["RANK"] = str(rank)
     # Signal that we are in a child so rotation doesn't happen again
     # In a real app this is inherited from parent's env
@@ -18,7 +17,7 @@ def worker(rank: int, log_dir: Path, script_name: str):
     shutdown_logging()
 
 
-def test_multiprocess_safety(tmp_path):
+def test_multiprocess_safety(tmp_path: Path) -> None:
     log_dir = tmp_path / "mp_test"
     script_name = "mp_safety"
 
