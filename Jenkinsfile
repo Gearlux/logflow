@@ -56,9 +56,19 @@ pipeline {
 
         stage('Unit Tests') {
             steps {
-                sh "${VENV_BIN}/pytest tests"
+                sh "${VENV_BIN}/pytest tests --junitxml=test-report.xml --cov=logflow --cov-report=xml:coverage.xml --cov-report=term"
+            }
+            post {
+                always {
+                    // Archive JUnit test results
+                    junit allowEmptyResults: true, testResults: 'test-report.xml'
+                    // Archive Cobertura coverage results (if plugin is installed)
+                    // Note: modern Jenkins uses the 'cobertura' or 'recordCoverage' step
+                    archiveArtifacts artifacts: 'coverage.xml', fingerprint: true
+                }
             }
         }
+
     }
 
     post {
