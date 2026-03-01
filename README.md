@@ -72,6 +72,19 @@ export LOGFLOW_DIR="/var/log/myapp"
 export LOGFLOW_CONSOLE_LEVEL="ERROR"
 ```
 
+## Log Inspection
+For the best experience viewing LogFlow logs (especially interleaving logs from multiple ranks/workers), we recommend using **[lnav](https://lnav.org/)** (The Log File Navigator).
+
+`lnav` automatically detects LogFlow's timestamp format and can merge multiple log files into a single, chronological view.
+
+### Usage with lnav
+```bash
+# View all logs in the directory interleaved by time
+lnav ./logs
+```
+
+For more information, see the **[lnav documentation](https://docs.lnav.org/)**.
+
 ## Distributed Training (DDP/SLURM)
 LogFlow handles ranks automatically. No need to wrap your log calls in `if rank == 0:`.
 ```python
