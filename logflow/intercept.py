@@ -1,0 +1,62 @@
+import logging
+import sys
+import warnings
+from types import FrameType
+from typing import Any, Optional, Union
+
+from loguru import logger
+
+
+class InterceptHandler(logging.Handler):
+    """
+    Intercept standard logging messages and redirect them to Loguru.
+    """
+
+    def emit(self, record: logging.LogRecord) -> None:
+        # Get corresponding Loguru level if it exists
+        level: Union[str, int]
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        # Find caller from where the logging call originated
+        frame: Optional[FrameType] = sys._getframe(6)
+        depth = 6
+        while frame and frame.f_code.co_filename == logging.__file__:
+            frame = frame.f_back
+            depth += 1
+
+        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+
+
+def redirect_warnings(
+    message: Union[Warning, str],
+    category: type[Warning],
+    filename: str,
+    lineno: int,
+    file: Optional[Any] = None,
+    line: Optional[Any] = None,
+) -> None:
+    """
+    Redirect Python warnings to loguru.
+    """
+    logger.opt(depth=2).warning(f"{category.__name__}: {message} ({filename}:{lineno})")
+
+
+def setup_interception() -> None:
+    """
+    Configure standard logging and warnings to use Loguru.
+    """
+    # Redirect standard logging
+    logging.root.handlers = [InterceptHandler()]
+    logging.root.setLevel(logging.DEBUG)
+
+    # Reconfigure existing loggers
+    for name in logging.root.manager.loggerDict.keys():
+        existing_logger = logging.getLogger(name)
+        existing_logger.handlers = []
+        existing_logger.propagate = True
+
+    # Redirect warnings
+    warnings.showwarning = redirect_warnings
