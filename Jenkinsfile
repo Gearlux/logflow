@@ -12,14 +12,14 @@ pipeline {
             steps {
                 echo 'Creating Isolated Virtual Environment...'
                 sh "python3 -m venv ${VENV_PATH}"
-                
-                echo 'Installing Dependencies in Editable Mode...'
+
+                echo 'Installing Dependencies...'
                 sh "${VENV_BIN}/pip install --upgrade pip"
                 sh "${VENV_BIN}/pip install -e .[dev]"
             }
         }
 
-        stage('Linting') {
+        stage('Quality Gates') {
             parallel {
                 stage('Black') {
                     steps {
@@ -33,26 +33,21 @@ pipeline {
                 }
                 stage('Flake8') {
                     steps {
-                        // Clean up previous reports
                         sh "rm -f flake8.txt flake8-report.xml"
-                        // Use || true to prevent the stage from stopping before the report is generated
                         sh "${VENV_BIN}/flake8 logflow tests examples --tee --output-file=flake8.txt || true"
-                        // Convert report to JUnit XML
                         sh "if [ -f flake8.txt ]; then ${VENV_BIN}/flake8_junit flake8.txt flake8-report.xml; fi"
                     }
                     post {
                         always {
-                            // Archive the report if it was generated
                             junit allowEmptyResults: true, testResults: 'flake8-report.xml'
                         }
                     }
                 }
-            }
-        }
-
-        stage('Type Check') {
-            steps {
-                sh "${VENV_BIN}/mypy logflow tests examples"
+                stage('Mypy') {
+                    steps {
+                        sh "${VENV_BIN}/mypy logflow tests examples"
+                    }
+                }
             }
         }
 
@@ -64,14 +59,27 @@ pipeline {
                 always {
                     // Archive and display JUnit test results
                     junit allowEmptyResults: true, testResults: 'test-report.xml'
-                    
+
                     // Display Coverage in Jenkins UI using Code Coverage API Plugin
                     recordCoverage tools: [[parser: 'COBERTURA', pattern: 'coverage.xml']]
                 }
             }
         }
 
-    }
+        stage('Verify Examples') {
+            steps {
+                echo 'Running project examples...'
+                // Use single quotes for the shell command to prevent Groovy from trying to resolve $f
+                sh '''
+                    for f in examples/*.py; do
+                        echo "Running $f..."
+                        ${VENV_BIN}/python3 "$f"
+                    done
+                '''
+            }
+        }
+        }
+
 
     post {
         always {
