@@ -55,13 +55,12 @@ def load_config() -> Dict[str, Any]:
             pass
 
     # 3. Check for global config (~/.config/logflow/config.yaml or XDG_CONFIG_HOME)
-    if not config:
-        global_path = get_xdg_config_dir() / "config.yaml"
-        if global_path.exists():
-            try:
-                with open(global_path, "r") as f:
-                    config.update(yaml.safe_load(f) or {})
-            except Exception:
-                pass
+    global_path = get_xdg_config_dir() / "config.yaml"
+    if global_path.exists():
+        try:
+            with open(global_path, "r") as f:
+                config.update(yaml.safe_load(f) or {})
+        except Exception:
+            pass
 
     return config

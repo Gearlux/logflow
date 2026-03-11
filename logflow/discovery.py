@@ -1,9 +1,11 @@
 import os
 import sys
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
 
+@lru_cache(maxsize=1)
 def get_rank() -> Optional[int]:
     """
     Detect the rank of the current process in a distributed environment.
