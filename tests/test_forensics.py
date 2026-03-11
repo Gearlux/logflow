@@ -1,17 +1,11 @@
 import os
 import time
-import importlib
 from pathlib import Path
-
-import pytest
-from loguru import logger
 
 import logflow.core
 
 
-
-
-def test_pivot_and_rotate_handoff(tmp_path: Path):
+def test_pivot_and_rotate_handoff(tmp_path: Path) -> None:
     """
     Verify Pattern:
     1. Start with wf.log
@@ -24,15 +18,15 @@ def test_pivot_and_rotate_handoff(tmp_path: Path):
     # 1. Initial config (Simulate wf start)
     # We must use logflow.core.configure_logging after the reload
     logflow.core.configure_logging(log_dir=log_dir, script_name="wf", force=True)
-    l = logflow.core.get_logger("bootstrap")
-    l.info("BOOTSTRAP START")
+    test_logger = logflow.core.get_logger("bootstrap")
+    test_logger.info("BOOTSTRAP START")
 
     wf_log = log_dir / "wf.log"
     assert wf_log.exists()
 
     # 2. Handoff (Simulate convert command)
     logflow.core.configure_logging(log_dir=log_dir, script_name="convert", force=True)
-    l.info("CONVERT START")
+    test_logger.info("CONVERT START")
 
     convert_log = log_dir / "convert.log"
     assert convert_log.exists()
@@ -44,7 +38,7 @@ def test_pivot_and_rotate_handoff(tmp_path: Path):
     assert "CONVERT START" in content
 
 
-def test_retention_enforcement(tmp_path: Path):
+def test_retention_enforcement(tmp_path: Path) -> None:
     """
     Verify that only the requested number of files are kept,
     even when we manually rotate.
@@ -63,7 +57,7 @@ def test_retention_enforcement(tmp_path: Path):
     assert len(remaining_files) <= 2
 
 
-def test_retention_decrease_cleanup(tmp_path: Path):
+def test_retention_decrease_cleanup(tmp_path: Path) -> None:
     """
     Verify that if retention goes from 5 to 2, older files are purged.
     """
@@ -78,6 +72,6 @@ def test_retention_decrease_cleanup(tmp_path: Path):
     assert len(list(log_dir.glob("*.log"))) == 5
 
     logflow.core.configure_logging(log_dir=log_dir, script_name="final_run", retention=2, force=True)
-    
+
     remaining = list(log_dir.glob("*.log"))
     assert len(remaining) <= 2

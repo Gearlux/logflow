@@ -1,31 +1,21 @@
 import os
-import logging
 import time
 from pathlib import Path
 from typing import Any
 
-import pytest
-from loguru import logger
-
 from logflow.core import configure_logging, get_logger, shutdown_logging
-
-
-
-
-    
-    
 
 
 def test_configure_default(tmp_path: Path) -> None:
     log_dir = tmp_path / "logs"
     script_name = "test_app"
-    
+
     configure_logging(log_dir=log_dir, script_name=script_name)
-    
-    l = get_logger("test")
-    l.info("Test message")
+
+    test_logger = get_logger("test")
+    test_logger.info("Test message")
     shutdown_logging()
-    
+
     log_file = log_dir / f"{script_name}.log"
     assert log_file.exists()
     assert "Test message" in log_file.read_text()
@@ -42,8 +32,8 @@ def test_configure_env_overrides_file(tmp_path: Path) -> None:
     os.environ["LOGFLOW_FILE_LEVEL"] = "TRACE"
     try:
         configure_logging(log_dir=log_dir, script_name="env_over")
-        logger = get_logger("env_test")
-        logger.trace("Trace message")
+        test_logger = get_logger("env_test")
+        test_logger.trace("Trace message")
         shutdown_logging()
 
         # Check the actual file created
@@ -61,8 +51,8 @@ def test_configure_args_overrides_env(tmp_path: Path) -> None:
     try:
         # Pass TRACE via argument
         configure_logging(log_dir=log_dir, script_name="arg_over", file_level="TRACE")
-        logger = get_logger("arg_test")
-        logger.trace("Trace message from arg")
+        test_logger = get_logger("arg_test")
+        test_logger.trace("Trace message from arg")
         shutdown_logging()
 
         log_file = log_dir / "arg_over.log"
@@ -77,8 +67,8 @@ def test_configure_rank_non_zero(tmp_path: Path) -> None:
     os.environ["RANK"] = "1"
     try:
         configure_logging(log_dir=log_dir, script_name="rank_app")
-        logger = get_logger("rank")
-        logger.info("Rank 1 message")
+        test_logger = get_logger("rank")
+        test_logger.info("Rank 1 message")
         shutdown_logging()
 
         log_file = log_dir / "rank_app.log"
@@ -94,11 +84,12 @@ def test_configure_rank_mocked(tmp_path: Path, monkeypatch: Any) -> None:
     log_dir = tmp_path / "mock_rank"
     # Mock get_rank to return 2
     import logflow.discovery
+
     monkeypatch.setattr(logflow.discovery, "get_rank", lambda: 2)
-    
+
     configure_logging(log_dir=log_dir, script_name="mocked")
-    logger = get_logger("test")
-    logger.info("Mocked rank message")
+    test_logger = get_logger("test")
+    test_logger.info("Mocked rank message")
     shutdown_logging()
 
     log_file = log_dir / "mocked.log"
@@ -113,15 +104,15 @@ def test_configure_no_rotation(tmp_path: Path) -> None:
     log_dir.mkdir()
     log_file = log_dir / "app.log"
     log_file.write_text("old\n")
-    
+
     # Wait a bit so mtime is different if needed
     time.sleep(0.1)
 
     # Initial config (this will clobber or append depending on mode)
     # Since it's the first config in this process, it might rotate if rotation_on_startup is True
     configure_logging(log_dir=log_dir, script_name="app", rotation_on_startup=False)
-    logger = get_logger("no_rotate")
-    logger.info("new")
+    test_logger = get_logger("no_rotate")
+    test_logger.info("new")
     shutdown_logging()
 
     content = log_file.read_text()
@@ -134,7 +125,7 @@ def test_startup_rotation(tmp_path: Path) -> None:
     log_dir.mkdir()
     log_file = log_dir / "rotate.log"
     log_file.write_text("old content")
-    
+
     # Small sleep to ensure mtime is distinct
     time.sleep(0.1)
 

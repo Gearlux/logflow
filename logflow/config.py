@@ -5,7 +5,7 @@ from typing import Any, Dict
 import yaml
 
 try:
-    import tomllib  # type: ignore
+    import tomllib
 except ImportError:
     import tomli as tomllib  # type: ignore
 
@@ -37,7 +37,7 @@ def load_config() -> Dict[str, Any]:
             try:
                 with open(yaml_path, "r") as f:
                     config.update(yaml.safe_load(f) or {})
-                    return config # Return immediately if found in CWD
+                    return config  # Return immediately if found in CWD
             except Exception:
                 pass
 
@@ -50,7 +50,7 @@ def load_config() -> Dict[str, Any]:
                 toml_cfg = data.get("tool", {}).get("logflow", {})
                 if toml_cfg:
                     config.update(toml_cfg)
-                    return config # Return immediately if found in CWD
+                    return config  # Return immediately if found in CWD
         except Exception:
             pass
 

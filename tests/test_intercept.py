@@ -1,17 +1,8 @@
-import os
 import logging
 import warnings
 from pathlib import Path
 
-import pytest
-
-from logflow.core import configure_logging, get_logger, shutdown_logging
-
-
-
-
-    
-    
+from logflow.core import configure_logging, shutdown_logging
 
 
 def test_intercept_standard_logging(tmp_path: Path) -> None:

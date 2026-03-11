@@ -1,9 +1,5 @@
 import multiprocessing as mp
-import os
-import time
 from pathlib import Path
-
-import pytest
 
 from logflow.core import configure_logging, get_logger, shutdown_logging
 
@@ -16,12 +12,6 @@ def worker(rank: int, log_dir: Path, script_name: str) -> None:
     logger = get_logger(f"worker_{rank}")
     logger.info(f"Worker {rank} log message")
     shutdown_logging()
-
-
-
-
-    
-    
 
 
 def test_multiprocess_safety(tmp_path: Path) -> None:
@@ -59,8 +49,8 @@ def test_multiprocess_safety(tmp_path: Path) -> None:
     for i in range(num_workers):
         assert f"Worker {i} log message" in content
 
-    # Since all processes (parent and children) write to the same file, 
-    # and we used force=True in children without a name change, 
+    # Since all processes (parent and children) write to the same file,
+    # and we used force=True in children without a name change,
     # the file content should be cumulative.
     assert "Main start" in content
     assert "Main end" in content

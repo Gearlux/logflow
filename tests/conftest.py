@@ -1,10 +1,14 @@
 import os
+from typing import Any, Generator
+
 import pytest
-import logflow.core
 from loguru import logger
 
+import logflow.core
+
+
 @pytest.fixture(autouse=True)
-def global_reset_logflow(tmp_path, monkeypatch):
+def global_reset_logflow(tmp_path: Any, monkeypatch: Any) -> Generator[None, None, None]:
     """Nuclear reset of all LogFlow state and Environment between tests."""
     # 1. Isolate HOME so global config (~/.config/logflow/) is never found
     monkeypatch.setenv("HOME", str(tmp_path))
