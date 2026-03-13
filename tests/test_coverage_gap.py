@@ -4,12 +4,13 @@ from typing import Any
 
 from loguru import logger
 
+import logflow.core
 import logflow.discovery
-from logflow.core import _STATE, configure_logging, shutdown_logging
+from logflow.core import configure_logging, shutdown_logging
 
 
 def test_rotate_non_zero_rank(tmp_path: Path, monkeypatch: Any) -> None:
-    """Line 42: if discovery.get_rank() not in (None, 0): return"""
+    """Line 52: if discovery.get_rank() not in (None, 0): return"""
     log_file = tmp_path / "test.log"
     log_file.write_text("content")
 
@@ -53,11 +54,11 @@ def test_rotate_cleanup_error(tmp_path: Path, monkeypatch: Any) -> None:
 
 
 def test_configure_already_configured_no_force() -> None:
-    """Line 86: if _STATE['configured'] and not force: return"""
-    _STATE["configured"] = True
+    """Early return when already configured and force=False."""
+    logflow.core.LoggingState.configured = True
     # If it returns early, it shouldn't raise errors even if args are invalid
     configure_logging(log_dir="/non/existent/path", force=False)
-    assert _STATE["configured"] is True
+    assert logflow.core.LoggingState.configured is True
 
 
 def test_pivot_copy_error(tmp_path: Path, monkeypatch: Any) -> None:

@@ -48,15 +48,14 @@ def setup_interception() -> None:
     """
     Configure standard logging and warnings to use Loguru.
     """
-    # Redirect standard logging
-    logging.root.handlers = [InterceptHandler()]
-    logging.root.setLevel(logging.DEBUG)
+    # 1. Redirect standard logging via root handler
+    logging.basicConfig(handlers=[InterceptHandler()], level=logging.DEBUG, force=True)
 
-    # Reconfigure existing loggers
-    for name in logging.root.manager.loggerDict.keys():
-        existing_logger = logging.getLogger(name)
-        existing_logger.handlers = []
-        existing_logger.propagate = True
+    # 2. Reconfigure existing loggers to ensure they propagate to root
+    for name in logging.root.manager.loggerDict:
+        lgr = logging.getLogger(name)
+        lgr.handlers = []
+        lgr.propagate = True
 
-    # Redirect warnings
+    # 3. Redirect warnings
     warnings.showwarning = redirect_warnings

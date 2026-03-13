@@ -1,37 +1,35 @@
 import os
 import sys
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
 
+@lru_cache(maxsize=1)
 def get_rank() -> Optional[int]:
     """
     Detect the rank of the current process in a distributed environment.
     Supports PyTorch DDP (torchrun), SLURM, and MPI.
-
-    Returns:
-        The global rank as an integer, or None if not in a distributed environment.
     """
-    # 1. PyTorch DDP / torchrun
-    for var in ("RANK", "SLURM_PROCID"):
-        val = os.environ.get(var)
-        if val is not None:
-            try:
-                return int(val)
-            except ValueError:
-                pass
 
-    # 2. Lightning / Generic DDP (Local + Node Rank)
-    local_rank = os.environ.get("LOCAL_RANK")
-    if local_rank is not None:
+    def from_env(var: str) -> Optional[int]:
         try:
-            node_rank = int(os.environ.get("NODE_RANK", os.environ.get("GROUP_RANK", "0")))
-            lr = int(local_rank)
-            # Best effort global rank calculation
-            device_count = int(os.environ.get("LOCAL_WORLD_SIZE", "1"))
-            return node_rank * device_count + lr
-        except ValueError:
-            pass
+            return int(os.environ[var]) if var in os.environ else None
+        except (ValueError, TypeError):
+            return None
+
+    # Priority 1: Direct Ranks
+    for var in ("RANK", "SLURM_PROCID"):
+        rank = from_env(var)
+        if rank is not None:
+            return rank
+
+    # Priority 2: Distributed Topology (Node Rank * Local World Size + Local Rank)
+    local_rank = from_env("LOCAL_RANK")
+    if local_rank is not None:
+        node_rank = from_env("NODE_RANK") or from_env("GROUP_RANK") or 0
+        world_size = from_env("LOCAL_WORLD_SIZE") or 1
+        return node_rank * world_size + local_rank
 
     return None
 
