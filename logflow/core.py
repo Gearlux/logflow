@@ -6,9 +6,12 @@ import warnings
 from datetime import datetime
 from multiprocessing import current_process
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from loguru import Logger
 
 from logflow import discovery
 from logflow.config import load_config
@@ -182,7 +185,7 @@ def shutdown_logging() -> None:
         warnings.warn(f"LogFlow: Failed to complete logger during shutdown: {e}")
 
 
-def get_logger(name: Optional[str] = None) -> Any:
+def get_logger(name: Optional[str] = None) -> "Logger":
     if not LoggingState.configured:
         configure_logging()
     return logger.bind(name=name) if name else logger
