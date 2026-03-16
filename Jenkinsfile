@@ -39,10 +39,10 @@ ET.ElementTree(root).write('black-report.xml', xml_declaration=True, encoding='u
                     }
                     post {
                         always {
-                            recordIssues(
-                                tools: [junit(id: 'black', name: 'Black Formatting', pattern: 'black-report.xml')],
-                                enabledForFailure: true,
-                                skipBlames: true
+                            recordCoverage(
+                                id: 'black',
+                                name: 'Black Formatting',
+                                tools: [[parser: 'JUNIT', pattern: 'black-report.xml']]
                             )
                         }
                     }
@@ -65,10 +65,10 @@ ET.ElementTree(root).write('isort-report.xml', xml_declaration=True, encoding='u
                     }
                     post {
                         always {
-                            recordIssues(
-                                tools: [junit(id: 'isort', name: 'Isort Import Order', pattern: 'isort-report.xml')],
-                                enabledForFailure: true,
-                                skipBlames: true
+                            recordCoverage(
+                                id: 'isort',
+                                name: 'Isort Import Order',
+                                tools: [[parser: 'JUNIT', pattern: 'isort-report.xml']]
                             )
                         }
                     }
@@ -81,10 +81,10 @@ ET.ElementTree(root).write('isort-report.xml', xml_declaration=True, encoding='u
                     }
                     post {
                         always {
-                            recordIssues(
-                                tools: [junit(id: 'flake8', name: 'Flake8', pattern: 'flake8-report.xml')],
-                                enabledForFailure: true,
-                                skipBlames: true
+                            recordCoverage(
+                                id: 'flake8',
+                                name: 'Flake8',
+                                tools: [[parser: 'JUNIT', pattern: 'flake8-report.xml']]
                             )
                         }
                     }
@@ -95,10 +95,10 @@ ET.ElementTree(root).write('isort-report.xml', xml_declaration=True, encoding='u
                     }
                     post {
                         always {
-                            recordIssues(
-                                tools: [junit(id: 'mypy', name: 'Mypy', pattern: 'mypy-report.xml')],
-                                enabledForFailure: true,
-                                skipBlames: true
+                            recordCoverage(
+                                id: 'mypy',
+                                name: 'Mypy',
+                                tools: [[parser: 'JUNIT', pattern: 'mypy-report.xml']]
                             )
                         }
                     }
