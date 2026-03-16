@@ -42,8 +42,8 @@ ET.ElementTree(root).write('black-report.xml', xml_declaration=True, encoding='u
                     post {
                         always {
                             recordCoverage(
-                                id: 'black',
-                                name: 'Black Formatting',
+                                id: 'black-logflow',
+                                name: 'Black Formatting (LogFlow)',
                                 tools: [[parser: 'JUNIT', pattern: 'black-report.xml']]
                             )
                         }
@@ -68,8 +68,8 @@ ET.ElementTree(root).write('isort-report.xml', xml_declaration=True, encoding='u
                     post {
                         always {
                             recordCoverage(
-                                id: 'isort',
-                                name: 'Isort Import Order',
+                                id: 'isort-logflow',
+                                name: 'Isort Import Order (LogFlow)',
                                 tools: [[parser: 'JUNIT', pattern: 'isort-report.xml']]
                             )
                         }
@@ -94,8 +94,8 @@ ET.ElementTree(root).write('flake8-report.xml', xml_declaration=True, encoding='
                     post {
                         always {
                             recordCoverage(
-                                id: 'flake8',
-                                name: 'Flake8',
+                                id: 'flake8-logflow',
+                                name: 'Flake8 (LogFlow)',
                                 tools: [[parser: 'JUNIT', pattern: 'flake8-report.xml']]
                             )
                         }
@@ -110,8 +110,8 @@ ET.ElementTree(root).write('flake8-report.xml', xml_declaration=True, encoding='
                     post {
                         always {
                             recordCoverage(
-                                id: 'mypy',
-                                name: 'Mypy',
+                                id: 'mypy-logflow',
+                                name: 'Mypy (LogFlow)',
                                 tools: [[parser: 'JUNIT', pattern: 'mypy-report.xml']]
                             )
                         }
@@ -131,13 +131,13 @@ ET.ElementTree(root).write('flake8-report.xml', xml_declaration=True, encoding='
 
                     // Display Coverage and Test Results as separate graphs using unique IDs
                     recordCoverage(
-                        id: 'unit-tests',
-                        name: 'Unit Tests',
+                        id: 'unit-tests-logflow',
+                        name: 'Unit Tests (LogFlow)',
                         tools: [[parser: 'JUNIT', pattern: 'test-report.xml']]
                     )
                     recordCoverage(
-                        id: 'coverage',
-                        name: 'Code Coverage',
+                        id: 'coverage-logflow',
+                        name: 'Code Coverage (LogFlow)',
                         tools: [[parser: 'COBERTURA', pattern: 'coverage.xml']]
                     )
                 }
