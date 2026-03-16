@@ -39,7 +39,11 @@ ET.ElementTree(root).write('black-report.xml', xml_declaration=True, encoding='u
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, testResults: 'black-report.xml'
+                            recordIssues(
+                                tool: junitXml(id: 'black', name: 'Black Formatting', pattern: 'black-report.xml'),
+                                enabledForFailure: true,
+                                skipBlames: true
+                            )
                         }
                     }
                 }
@@ -61,7 +65,11 @@ ET.ElementTree(root).write('isort-report.xml', xml_declaration=True, encoding='u
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, testResults: 'isort-report.xml'
+                            recordIssues(
+                                tool: junitXml(id: 'isort', name: 'Isort Import Order', pattern: 'isort-report.xml'),
+                                enabledForFailure: true,
+                                skipBlames: true
+                            )
                         }
                     }
                 }
@@ -73,7 +81,11 @@ ET.ElementTree(root).write('isort-report.xml', xml_declaration=True, encoding='u
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, testResults: 'flake8-report.xml'
+                            recordIssues(
+                                tool: junitXml(id: 'flake8', name: 'Flake8', pattern: 'flake8-report.xml'),
+                                enabledForFailure: true,
+                                skipBlames: true
+                            )
                         }
                     }
                 }
@@ -83,7 +95,11 @@ ET.ElementTree(root).write('isort-report.xml', xml_declaration=True, encoding='u
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, testResults: 'mypy-report.xml'
+                            recordIssues(
+                                tool: junitXml(id: 'mypy', name: 'Mypy', pattern: 'mypy-report.xml'),
+                                enabledForFailure: true,
+                                skipBlames: true
+                            )
                         }
                     }
                 }
