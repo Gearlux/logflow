@@ -46,7 +46,5 @@ if __name__ == "__main__":
         p.join()
 
     # Ensure main process flushes its logs before final completion
-    main_logger.success(
-        "Demo completed. Check 'demo_logs/mp_demo.log' for full output."
-    )
+    main_logger.success("Demo completed. Check 'demo_logs/mp_demo.log' for full output.")
     shutdown_logging()
