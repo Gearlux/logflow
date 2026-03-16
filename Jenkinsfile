@@ -40,7 +40,7 @@ ET.ElementTree(root).write('black-report.xml', xml_declaration=True, encoding='u
                     post {
                         always {
                             recordIssues(
-                                tool: junitXml(id: 'black', name: 'Black Formatting', pattern: 'black-report.xml'),
+                                tools: [junit(id: 'black', name: 'Black Formatting', pattern: 'black-report.xml')],
                                 enabledForFailure: true,
                                 skipBlames: true
                             )
@@ -66,7 +66,7 @@ ET.ElementTree(root).write('isort-report.xml', xml_declaration=True, encoding='u
                     post {
                         always {
                             recordIssues(
-                                tool: junitXml(id: 'isort', name: 'Isort Import Order', pattern: 'isort-report.xml'),
+                                tools: [junit(id: 'isort', name: 'Isort Import Order', pattern: 'isort-report.xml')],
                                 enabledForFailure: true,
                                 skipBlames: true
                             )
@@ -82,7 +82,7 @@ ET.ElementTree(root).write('isort-report.xml', xml_declaration=True, encoding='u
                     post {
                         always {
                             recordIssues(
-                                tool: junitXml(id: 'flake8', name: 'Flake8', pattern: 'flake8-report.xml'),
+                                tools: [junit(id: 'flake8', name: 'Flake8', pattern: 'flake8-report.xml')],
                                 enabledForFailure: true,
                                 skipBlames: true
                             )
@@ -96,7 +96,7 @@ ET.ElementTree(root).write('isort-report.xml', xml_declaration=True, encoding='u
                     post {
                         always {
                             recordIssues(
-                                tool: junitXml(id: 'mypy', name: 'Mypy', pattern: 'mypy-report.xml'),
+                                tools: [junit(id: 'mypy', name: 'Mypy', pattern: 'mypy-report.xml')],
                                 enabledForFailure: true,
                                 skipBlames: true
                             )
