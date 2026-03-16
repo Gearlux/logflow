@@ -29,7 +29,9 @@ def load_config() -> Dict[str, Any]:
 
     def _toml(p: Path) -> Dict[str, Any]:
         with open(p, "rb") as f:
-            return cast(Dict[str, Any], tomllib.load(f).get("tool", {}).get("logflow", {}))
+            return cast(
+                Dict[str, Any], tomllib.load(f).get("tool", {}).get("logflow", {})
+            )
 
     candidates: List[Tuple[Path, Callable[[Path], Dict[str, Any]]]] = [
         (Path("logflow.yaml"), _yaml),

@@ -52,22 +52,38 @@ def _purge_old_files(candidates: List[Path], keep: int) -> None:
 
 def _rotate(path: Path, retention: int = 5) -> None:
     """Manual rotation of an existing log file (Main process only)."""
-    if not path.exists() or path.stat().st_size == 0 or discovery.get_rank() not in (None, 0):
+    if (
+        not path.exists()
+        or path.stat().st_size == 0
+        or discovery.get_rank() not in (None, 0)
+    ):
         return
 
-    timestamp = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.fromtimestamp(path.stat().st_mtime).strftime(
+        "%Y-%m-%d_%H-%M-%S"
+    )
     rotated_path = path.parent / f"{path.stem}.{timestamp}{path.suffix}"
 
     try:
         path.rename(rotated_path)
-        pattern = re.escape(path.stem) + r"\.\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}" + re.escape(path.suffix)
-        candidates = [p for p in path.parent.iterdir() if p.is_file() and re.fullmatch(pattern, p.name)]
+        pattern = (
+            re.escape(path.stem)
+            + r"\.\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+            + re.escape(path.suffix)
+        )
+        candidates = [
+            p
+            for p in path.parent.iterdir()
+            if p.is_file() and re.fullmatch(pattern, p.name)
+        ]
         _purge_old_files(candidates, retention)
     except Exception as e:
         warnings.warn(f"LogFlow: Failed to rotate log file {path}: {e}")
 
 
-def _perform_pivot(current_log: Path, new_log: Path, do_rotation: bool, retention: int) -> None:
+def _perform_pivot(
+    current_log: Path, new_log: Path, do_rotation: bool, retention: int
+) -> None:
     """Transition from an interim log file to a final target file."""
     logger.remove()
     try:
@@ -83,7 +99,9 @@ def _perform_pivot(current_log: Path, new_log: Path, do_rotation: bool, retentio
             shutil.copy2(current_log, new_log)
             current_log.unlink()
         except Exception as e:
-            warnings.warn(f"LogFlow: Failed to pivot logs from {current_log} to {new_log}: {e}")
+            warnings.warn(
+                f"LogFlow: Failed to pivot logs from {current_log} to {new_log}: {e}"
+            )
     LoggingState.configured = False
 
 
@@ -100,7 +118,10 @@ def configure_logging(
     """
     Configure the global LogFlow system with Atomic Pivot support.
     """
-    is_main_proc = current_process().name == "MainProcess" and discovery.get_rank() in (None, 0)
+    is_main_proc = current_process().name == "MainProcess" and discovery.get_rank() in (
+        None,
+        0,
+    )
 
     if LoggingState.configured and not force:
         return
@@ -122,13 +143,26 @@ def configure_logging(
     log_dir_path = Path(log_dir_val).expanduser().resolve()
     log_dir_path.mkdir(parents=True, exist_ok=True)
 
-    f_level = str(resolve(file_level, "LOGFLOW_FILE_LEVEL", "file_level", "DEBUG")).upper()
-    c_level = str(resolve(console_level, "LOGFLOW_CONSOLE_LEVEL", "console_level", "INFO")).upper()
+    f_level = str(
+        resolve(file_level, "LOGFLOW_FILE_LEVEL", "file_level", "DEBUG")
+    ).upper()
+    c_level = str(
+        resolve(console_level, "LOGFLOW_CONSOLE_LEVEL", "console_level", "INFO")
+    ).upper()
     retention_val = int(resolve(retention, "LOGFLOW_RETENTION", "retention", 5))
-    do_rotation = str_to_bool(resolve(rotation_on_startup, "LOGFLOW_ROTATION_ON_STARTUP", "rotation_on_startup", True))
+    do_rotation = str_to_bool(
+        resolve(
+            rotation_on_startup,
+            "LOGFLOW_ROTATION_ON_STARTUP",
+            "rotation_on_startup",
+            True,
+        )
+    )
     enqueue_val = str_to_bool(resolve(enqueue, "LOGFLOW_ENQUEUE", "enqueue", False))
 
-    target_name = discovery.determine_script_name(resolve(script_name, "LOGFLOW_SCRIPT_NAME", "script_name", None))
+    target_name = discovery.determine_script_name(
+        resolve(script_name, "LOGFLOW_SCRIPT_NAME", "script_name", None)
+    )
     new_log_file = log_dir_path / f"{target_name}.log"
 
     # 2. PIVOT & ROTATION
@@ -150,10 +184,17 @@ def configure_logging(
                 "{extra[rank_tag]}<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
                 "<level>{message}</level>"
             )
-            logger.add(sys.stderr, level=c_level, format=fmt, filter=_rank_filter, colorize=True)
+            logger.add(
+                sys.stderr,
+                level=c_level,
+                format=fmt,
+                filter=_rank_filter,
+                colorize=True,
+            )
 
         file_fmt = (
-            "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | " "{extra[rank_tag]}{name}:{function}:{line} | {message}"
+            "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | "
+            "{extra[rank_tag]}{name}:{function}:{line} | {message}"
         )
         logger.add(
             str(new_log_file),
@@ -172,10 +213,16 @@ def configure_logging(
     if is_main_proc:
         os.environ["LOGFLOW_SCRIPT_NAME"] = target_name
 
-        all_logs = [f for f in log_dir_path.glob("*.log") if f.is_file() and f.resolve() != new_log_file.resolve()]
+        all_logs = [
+            f
+            for f in log_dir_path.glob("*.log")
+            if f.is_file() and f.resolve() != new_log_file.resolve()
+        ]
         _purge_old_files(all_logs, max(retention_val - 1, 0))
 
-        logger.info(f"LogFlow {'Re-' if was_cfg else ''}initialized: {new_log_file.name}")
+        logger.info(
+            f"LogFlow {'Re-' if was_cfg else ''}initialized: {new_log_file.name}"
+        )
 
 
 def shutdown_logging() -> None:
