@@ -36,7 +36,7 @@ LogFlow solves these by being **distributed-aware** and **framework-agnostic**.
 
 ## Installation
 ```bash
-pip install logflow
+pip install git+https://github.com/Gearlux/logflow.git@main
 ```
 
 ## Quick Start
