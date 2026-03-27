@@ -9,11 +9,7 @@ from logflow.config import get_xdg_config_dir, load_config
 def test_load_config_pyproject(tmp_path: Path) -> None:
     # Mock pyproject.toml
     pyproject = tmp_path / "pyproject.toml"
-    pyproject.write_text("""
-[tool.logflow]
-console_level = "DEBUG"
-retention = 10
-""")
+    pyproject.write_text('[tool.logflow]\nconsole_level = "DEBUG"\nretention = 10\n')
 
     # Change directory to tmp_path
     old_cwd = os.getcwd()
