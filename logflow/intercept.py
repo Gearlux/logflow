@@ -59,3 +59,10 @@ def setup_interception() -> None:
 
     # 3. Redirect warnings
     warnings.showwarning = redirect_warnings
+
+    # 4. Standard Library / Third-party overrides
+    logging.getLogger("asyncio").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("datasets").setLevel(logging.WARNING)
+    logging.getLogger("filelock").setLevel(logging.WARNING)

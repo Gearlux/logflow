@@ -1,14 +1,10 @@
 import os
+import tomllib
 import warnings
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Tuple, cast
 
 import yaml
-
-try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib  # type: ignore
 
 
 def get_xdg_config_dir() -> Path:
