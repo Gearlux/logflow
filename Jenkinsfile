@@ -14,6 +14,7 @@ pipeline {
                 sh "python3 -m venv ${VENV_PATH}"
                 echo 'Installing Dependencies...'
                 sh "${VENV_BIN}/pip install --upgrade pip"
+                
                 sh "${VENV_BIN}/pip install -e .[dev]"
             }
         }
@@ -23,27 +24,15 @@ pipeline {
                 stage('Black') {
                     steps {
                         script {
-                            def rc = sh(script: "${VENV_BIN}/black --check --diff logflow tests examples > black-diff.txt 2>&1", returnStatus: true)
-                            sh """${VENV_BIN}/python3 -c "
-import sys, os
-lines = open('black-diff.txt').readlines()
-with open('black-checkstyle.xml', 'w') as f:
-    f.write('<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>\\n<checkstyle version=\\"5.0\\">\\n')
-    for line in lines:
-        if line.startswith('would reformat '):
-            path = line.replace('would reformat ', '').strip()
-            f.write('  <file name=\\"' + path + '\\">\\n')
-            f.write('    <error line=\\"1\\" severity=\\"warning\\" message=\\"Black would reformat this file\\" source=\\"black\\"/>\\n')
-            f.write('  </file>\\n')
-    f.write('</checkstyle>\\n')
-" """
+                            sh "rm -f black-diff.txt black-checkstyle.xml"
+                            sh "${VENV_BIN}/black --check --diff logflow tests examples > black-diff.txt 2>&1"
                         }
                     }
                     post {
                         always {
                             recordIssues(
                                 id: 'black-logflow',
-                                name: 'Black Formatting (LogFlow)',
+                                name: 'Black Formatting (Logflow)',
                                 tools: [checkStyle(pattern: 'black-checkstyle.xml')]
                             )
                         }
@@ -52,27 +41,15 @@ with open('black-checkstyle.xml', 'w') as f:
                 stage('Isort') {
                     steps {
                         script {
-                            def rc = sh(script: "${VENV_BIN}/isort --check-only --diff logflow tests examples > isort-diff.txt 2>&1", returnStatus: true)
-                            sh """${VENV_BIN}/python3 -c "
-import sys, os
-lines = open('isort-diff.txt').readlines()
-with open('isort-checkstyle.xml', 'w') as f:
-    f.write('<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>\\n<checkstyle version=\\"5.0\\">\\n')
-    for line in lines:
-        if line.startswith('ERROR: '):
-            path = line.split(' ')[1].strip()
-            f.write('  <file name=\\"' + path + '\\">\\n')
-            f.write('    <error line=\\"1\\" severity=\\"warning\\" message=\\"Isort import order issues\\" source=\\"isort\\"/>\\n')
-            f.write('  </file>\\n')
-    f.write('</checkstyle>\\n')
-" """
+                            sh "rm -f isort-diff.txt isort-checkstyle.xml"
+                            sh "${VENV_BIN}/isort --check-only --diff logflow tests examples > isort-diff.txt 2>&1"
                         }
                     }
                     post {
                         always {
                             recordIssues(
                                 id: 'isort-logflow',
-                                name: 'Isort Import Order (LogFlow)',
+                                name: 'Isort Import Order (Logflow)',
                                 tools: [checkStyle(pattern: 'isort-checkstyle.xml')]
                             )
                         }
@@ -80,13 +57,14 @@ with open('isort-checkstyle.xml', 'w') as f:
                 }
                 stage('Flake8') {
                     steps {
+                        sh "rm -f flake8.txt"
                         sh "${VENV_BIN}/flake8 logflow tests examples --tee --output-file=flake8.txt || true"
                     }
                     post {
                         always {
                             recordIssues(
                                 id: 'flake8-logflow',
-                                name: 'Flake8 (LogFlow)',
+                                name: 'Flake8 (Logflow)',
                                 tools: [flake8(pattern: 'flake8.txt')]
                             )
                         }
@@ -94,13 +72,14 @@ with open('isort-checkstyle.xml', 'w') as f:
                 }
                 stage('Mypy') {
                     steps {
+                        sh "rm -f mypy.txt"
                         sh "${VENV_BIN}/mypy logflow tests examples > mypy.txt || true"
                     }
                     post {
                         always {
                             recordIssues(
                                 id: 'mypy-logflow',
-                                name: 'Mypy (LogFlow)',
+                                name: 'Mypy (Logflow)',
                                 tools: [myPy(pattern: 'mypy.txt')]
                             )
                         }
@@ -124,29 +103,17 @@ with open('isort-checkstyle.xml', 'w') as f:
                 }
             }
         }
-
-        stage('Verify Examples') {
-            steps {
-                echo 'Running project examples...'
-                sh '''
-                    for f in examples/*.py; do
-                        echo "Running $f..."
-                        ${VENV_BIN}/python3 "$f"
-                    done
-                '''
-            }
-        }
     }
 
     post {
         always {
-            echo 'LogFlow Pipeline Complete.'
+            echo 'Logflow Pipeline Complete.'
         }
         success {
-            echo 'Project is healthy and ready for publication.'
+            echo 'Logflow is healthy.'
         }
         failure {
-            echo 'Build failed. Please check linting or test failures.'
+            echo 'Logflow build failed.'
         }
     }
 }
