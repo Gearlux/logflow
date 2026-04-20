@@ -38,8 +38,8 @@ pipeline {
                 // venv stays under a single owner.
                 sh "${VENV_BIN}/uv --version"
                 echo 'Installing Project in Editable Mode...'
-                sh "${VENV_BIN}/uv pip install -e .[dev]"
                 
+                sh "${VENV_BIN}/uv pip install -e .[dev]"
             }
         }
 

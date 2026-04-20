@@ -29,8 +29,8 @@ pipeline {
                 echo 'Bootstrapping uv for fast dependency resolution...'
                 sh "${VENV_BIN}/pip install --upgrade pip uv"
                 echo 'Installing Dependencies...'
-                sh "${VENV_BIN}/uv pip install -e .[dev]"
                 
+                sh "${VENV_BIN}/uv pip install -e .[dev]"
             }
         }
 

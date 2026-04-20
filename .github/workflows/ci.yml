@@ -26,8 +26,8 @@ jobs:
       uses: astral-sh/setup-uv@v4
     - name: Install dependencies
       run: |
-        uv pip install --system -e ".[dev]"
         
+        uv pip install --system -e ".[dev]"
     - name: Run Isort
       run: isort --check-only .
     - name: Run Black
@@ -51,8 +51,8 @@ jobs:
       uses: astral-sh/setup-uv@v4
     - name: Install dependencies
       run: |
-        uv pip install --system -e ".[dev]"
         
+        uv pip install --system -e ".[dev]"
     - name: Run Tests
       run: |
         if [ -d tests ] && find tests -name '*.py' | grep -q .; then
@@ -81,8 +81,8 @@ jobs:
       uses: astral-sh/setup-uv@v4
     - name: Install dependencies
       run: |
-        uv pip install --system -e ".[dev]"
         
+        uv pip install --system -e ".[dev]"
     - name: Run Examples
       run: |
         for f in examples/*.py; do
