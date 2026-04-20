@@ -35,8 +35,8 @@ pipeline {
         }
 
         stage('Quality Gates') {
+            failFast true
             parallel {
-                failFast true
                 stage('Black') {
                     steps {
                         script {
