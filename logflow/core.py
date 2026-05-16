@@ -23,14 +23,80 @@ class LoggingState:
 
     configured: bool = False
     log_file: Optional[Path] = None
+    # Lazy-enqueue bookkeeping — keep the params for the file sink so we can
+    # re-add it with enqueue=True the first time multiprocess activity is
+    # detected. Avoids paying the POSIX-semaphore cost in single-process runs.
+    file_sink_id: Optional[int] = None
+    file_sink_params: Optional[dict] = None
+    enqueue_active: bool = False
+    enqueue_requested: bool = False
 
     @classmethod
     def reset(cls) -> None:
         cls.configured = False
         cls.log_file = None
+        cls.file_sink_id = None
+        cls.file_sink_params = None
+        cls.enqueue_active = False
+        cls.enqueue_requested = False
         logger.remove()
         if hasattr(discovery.get_rank, "cache_clear"):
             discovery.get_rank.cache_clear()
+
+
+def _upgrade_to_enqueue() -> None:
+    """Swap the file sink to ``enqueue=True``. Idempotent.
+
+    Called the first time the parent process is about to fork or spawn a
+    child. Allocating the multiprocessing queue here (instead of at handler
+    creation) avoids the POSIX semaphore cost — and on macOS the kernel-wide
+    semaphore-table exhaustion — for single-process runs.
+    """
+    if LoggingState.enqueue_active:
+        return
+    if not LoggingState.enqueue_requested:
+        return
+    if LoggingState.file_sink_id is None or LoggingState.file_sink_params is None:
+        return
+    try:
+        logger.remove(LoggingState.file_sink_id)
+    except ValueError:
+        pass  # already removed by an external caller
+    params: Any = dict(LoggingState.file_sink_params)
+    params["enqueue"] = True
+    LoggingState.file_sink_id = logger.add(**params)
+    LoggingState.enqueue_active = True
+
+
+def _install_lazy_enqueue_hooks() -> None:
+    """Install one-time fork + spawn hooks that trigger ``_upgrade_to_enqueue``.
+
+    The fork hook is wired via :func:`os.register_at_fork`; the spawn hook is
+    a one-shot monkey-patch of ``multiprocessing.process.BaseProcess.__init__``
+    so the queue exists in the parent before the spawn pickles parent state.
+    Both are idempotent and process-local.
+    """
+    if getattr(_install_lazy_enqueue_hooks, "_installed", False):
+        return
+
+    try:
+        os.register_at_fork(before=_upgrade_to_enqueue)
+    except (AttributeError, RuntimeError):  # pragma: no cover - platform-dep
+        pass
+
+    import multiprocessing.process as _mp_process
+
+    if not getattr(_mp_process.BaseProcess.__init__, "_logflow_patched", False):
+        _orig_init = _mp_process.BaseProcess.__init__
+
+        def _patched_init(self: Any, *args: Any, **kwargs: Any) -> None:
+            _upgrade_to_enqueue()
+            _orig_init(self, *args, **kwargs)
+
+        _patched_init._logflow_patched = True  # type: ignore[attr-defined]
+        _mp_process.BaseProcess.__init__ = _patched_init  # type: ignore[method-assign]
+
+    _install_lazy_enqueue_hooks._installed = True  # type: ignore[attr-defined]
 
 
 def _rank_filter(record: Any) -> bool:
@@ -171,14 +237,31 @@ def configure_logging(
         file_fmt = (
             "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | " "{extra[rank_tag]}{name}:{function}:{line} | {message}"
         )
-        logger.add(
-            str(new_log_file),
+        # Lazy-enqueue: when the user asks for ``enqueue=True``, defer the
+        # multiprocessing queue (and its POSIX semaphore) until something
+        # actually forks/spawns a child. Children re-running configure_logging
+        # detect themselves via current_process().name and start eagerly.
+        eager_env = os.getenv("LOGFLOW_EAGER_ENQUEUE")
+        force_eager = eager_env is not None and str_to_bool(eager_env)
+        in_child = current_process().name != "MainProcess"
+        start_with_enqueue = enqueue_val and (force_eager or in_child)
+        file_sink_params: dict = dict(
+            sink=str(new_log_file),
             level=f_level,
             format=file_fmt,
             filter=_rank_filter,
-            enqueue=enqueue_val,
             mode="a",
+            enqueue=start_with_enqueue,
         )
+        sink_id = logger.add(**file_sink_params)
+
+        LoggingState.file_sink_id = sink_id
+        LoggingState.file_sink_params = file_sink_params
+        LoggingState.enqueue_active = start_with_enqueue
+        LoggingState.enqueue_requested = bool(enqueue_val)
+
+        if enqueue_val and not start_with_enqueue:
+            _install_lazy_enqueue_hooks()
 
     was_cfg = LoggingState.configured
     LoggingState.log_file = new_log_file

@@ -14,9 +14,14 @@ log_dir: "./logs"
 # Env: LOGFLOW_SCRIPT_NAME
 script_name: "my_app"
 
-# Use a background process for logging. 
-# Strongly recommended for multiprocess (ML) environments to prevent I/O blocking.
-# Default: true
+# Use a background process-safe queue for the file sink.
+# Strongly recommended for multiprocess (ML) environments. The queue is
+# allocated LAZILY — only when something actually forks/spawns a child
+# process — so leaving this on for single-process scripts is free
+# (no POSIX semaphore allocated, no resource_tracker spawned).
+# Set LOGFLOW_EAGER_ENQUEUE=true to opt out of the laziness and allocate
+# at handler-creation time (rarely needed).
+# Default: false
 # Env: LOGFLOW_ENQUEUE
 enqueue: true
 
