@@ -89,6 +89,37 @@ export LOGFLOW_DIR="/var/log/myapp"
 export LOGFLOW_CONSOLE_LEVEL="ERROR"
 ```
 
+### 3. Per-logger, Per-sink Level Overrides
+
+`file_level` / `console_level` set global thresholds for the file and console sinks. To override the threshold for specific loggers — and, optionally, only on one of the two sinks — use `module_levels`:
+
+```yaml
+file_level: "DEBUG"
+console_level: "INFO"
+
+module_levels:
+  # Silence a chatty discovery logger on the file sink, in DataLoader workers only.
+  # The main process still emits INFO so first-time discovery stays visible.
+  "waivefront.rfuav.data.archive":
+    file: WARNING
+    workers_only: true
+
+  # Quiet on screen, full detail on disk — promotes this logger below the global file_level.
+  "noisy.lib.but.useful.in.debug":
+    console: ERROR
+    file: DEBUG
+```
+
+Rules:
+
+- Keys match loguru's `record["name"]` (the calling module's dotted path) by **dotted-segment prefix**: `"pkg.sub"` matches `"pkg.sub"` and `"pkg.sub.mod"`, but **not** `"pkg.subway"`. `"foo"` does not match `"foobar.baz"`.
+- On overlap, the **longest matching prefix wins**. YAML order is irrelevant.
+- `console:` and `file:` are each optional; an omitted sink falls back to the global level for that logger.
+- `workers_only: true` restricts the override to non-`MainProcess` processes (typically PyTorch DataLoader workers).
+- Unknown sub-keys or invalid level strings raise `ValueError` at startup — no silent ignores.
+
+See `logflow.example.yaml` for the full reference.
+
 ## Log Inspection
 For the best experience viewing LogFlow logs (especially interleaving logs from multiple ranks/workers), we recommend using **[lnav](https://lnav.org/)** (The Log File Navigator).
 

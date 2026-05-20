@@ -37,6 +37,14 @@ ML experiments are iterative.
 ### 4. Zero-Latency "Enqueue"
 By utilizing a dedicated background process for log sinking, LogFlow ensures that the main training loop (the "Critical Path") is never blocked by I/O operations, even when writing to slow network storage.
 
+### 5. Per-logger, Per-sink Filtering as a First-Class Surface
+Loguru already exposes a per-sink `filter=` callable that receives each record before it is dispatched — this is the natural seam for module-targeted filtering, and LogFlow surfaces it as YAML-level `module_levels` config. Two design choices matter here:
+
+- **Sink-specific closures.** Each `logger.add(...)` call gets its own filter built by `_make_sink_filter("console" | "file", global_no, rules)`, so the same logger can be loud on disk and quiet on screen without code changes.
+- **`level="TRACE"` + filter, not `level=...`.** Loguru's per-sink `level=` argument is a hard floor — records below it never reach the filter. We pin the sink level to `TRACE` (the absolute minimum) and let the filter alone decide. This is the only way a per-logger override can both **demote** a noisy logger (raise its threshold above the global) and **promote** a useful one (lower it below) within a single sink configuration.
+
+The same filter also detects `current_process().name != "MainProcess"` per record, which is what backs the `workers_only: true` flag — letting users silence PyTorch DataLoader-worker chatter without losing the main-process equivalents.
+
 ---
 
 ## Design Goals for Implementation

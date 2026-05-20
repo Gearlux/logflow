@@ -3,10 +3,11 @@ import re
 import shutil
 import sys
 import warnings
+from dataclasses import dataclass
 from datetime import datetime
 from multiprocessing import current_process
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Union
 
 from loguru import logger
 
@@ -99,11 +100,112 @@ def _install_lazy_enqueue_hooks() -> None:
     _install_lazy_enqueue_hooks._installed = True  # type: ignore[attr-defined]
 
 
-def _rank_filter(record: Any) -> bool:
-    """Tag log records with rank information."""
-    r = discovery.get_rank()
-    record["extra"]["rank_tag"] = f"[rank {r}] | " if r and r > 0 else ""
-    return True
+# --- Per-logger, per-sink level overrides -----------------------------------
+
+_VALID_RULE_KEYS = {"console", "file", "workers_only"}
+
+
+@dataclass(frozen=True)
+class ModuleLevelRule:
+    """A parsed `module_levels` entry.
+
+    `console_no` / `file_no` are loguru level numbers (`logger.level(name).no`)
+    or `None` to defer to the sink's global level. `workers_only=True` restricts
+    the rule to non-MainProcess processes (e.g. DataLoader workers).
+    """
+
+    prefix: str
+    console_no: Optional[int]
+    file_no: Optional[int]
+    workers_only: bool
+
+
+def _level_no(level: str, where: str) -> int:
+    try:
+        return int(logger.level(level.upper()).no)
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"module_levels: invalid level '{level}' for {where}") from e
+
+
+def _parse_module_levels(cfg: Dict[str, Any]) -> List[ModuleLevelRule]:
+    """Parse and validate the optional ``module_levels`` config block.
+
+    Fails fast on unknown sub-keys or invalid levels — silent ignores are
+    exactly how this feature rotted unimplemented for so long.
+    """
+    raw = cfg.get("module_levels")
+    if raw is None:
+        return []
+    if not isinstance(raw, dict):
+        raise ValueError(f"module_levels: expected a mapping, got {type(raw).__name__}")
+
+    rules: List[ModuleLevelRule] = []
+    for prefix, entry in raw.items():
+        if not isinstance(prefix, str) or not prefix:
+            raise ValueError(f"module_levels: prefix keys must be non-empty strings, got {prefix!r}")
+        if not isinstance(entry, dict):
+            raise ValueError(
+                f"module_levels[{prefix!r}]: expected a mapping with keys {sorted(_VALID_RULE_KEYS)}, "
+                f"got {type(entry).__name__}"
+            )
+        unknown = set(entry.keys()) - _VALID_RULE_KEYS
+        if unknown:
+            raise ValueError(
+                f"module_levels[{prefix!r}]: unknown sub-key(s) {sorted(unknown)}; "
+                f"valid keys are {sorted(_VALID_RULE_KEYS)}"
+            )
+        c = entry.get("console")
+        f = entry.get("file")
+        if c is None and f is None:
+            raise ValueError(f"module_levels[{prefix!r}]: must set at least one of 'console' or 'file'")
+        workers_only = entry.get("workers_only", False)
+        if not isinstance(workers_only, bool):
+            raise ValueError(
+                f"module_levels[{prefix!r}].workers_only: expected bool, got {type(workers_only).__name__}"
+            )
+        rules.append(
+            ModuleLevelRule(
+                prefix=prefix,
+                console_no=_level_no(c, f"module_levels[{prefix!r}].console") if c is not None else None,
+                file_no=_level_no(f, f"module_levels[{prefix!r}].file") if f is not None else None,
+                workers_only=workers_only,
+            )
+        )
+
+    # Longest prefix first → first-match wins gives most-specific match.
+    rules.sort(key=lambda r: len(r.prefix), reverse=True)
+    return rules
+
+
+def _make_sink_filter(
+    sink: Literal["console", "file"],
+    global_no: int,
+    rules: List[ModuleLevelRule],
+) -> Callable[[Any], bool]:
+    """Build a loguru `filter=` callable that gates records by per-logger threshold.
+
+    Also tags `record["extra"]["rank_tag"]` (used by both sinks' format strings).
+    """
+
+    def _filter(record: Any) -> bool:
+        r = discovery.get_rank()
+        record["extra"]["rank_tag"] = f"[rank {r}] | " if r and r > 0 else ""
+
+        threshold = global_no
+        if rules:
+            name = record["name"] or ""
+            in_worker = current_process().name != "MainProcess"
+            for rule in rules:
+                if rule.workers_only and not in_worker:
+                    continue
+                if name == rule.prefix or name.startswith(rule.prefix + "."):
+                    override = rule.console_no if sink == "console" else rule.file_no
+                    if override is not None:
+                        threshold = override
+                    break
+        return bool(record["level"].no >= threshold)
+
+    return _filter
 
 
 def _purge_old_files(candidates: List[Path], keep: int) -> None:
@@ -193,6 +295,9 @@ def configure_logging(
 
     f_level = str(resolve(file_level, "LOGFLOW_FILE_LEVEL", "file_level", "DEBUG")).upper()
     c_level = str(resolve(console_level, "LOGFLOW_CONSOLE_LEVEL", "console_level", "INFO")).upper()
+    f_no = _level_no(f_level, "file_level")
+    c_no = _level_no(c_level, "console_level")
+    module_rules = _parse_module_levels(cfg)
     retention_val = int(resolve(retention, "LOGFLOW_RETENTION", "retention", 5))
     do_rotation = str_to_bool(
         resolve(
@@ -228,9 +333,9 @@ def configure_logging(
             )
             logger.add(
                 sys.stderr,
-                level=c_level,
+                level="TRACE",
                 format=fmt,
-                filter=_rank_filter,
+                filter=_make_sink_filter("console", c_no, module_rules),
                 colorize=True,
             )
 
@@ -247,9 +352,9 @@ def configure_logging(
         start_with_enqueue = enqueue_val and (force_eager or in_child)
         file_sink_params: dict = dict(
             sink=str(new_log_file),
-            level=f_level,
+            level="TRACE",
             format=file_fmt,
-            filter=_rank_filter,
+            filter=_make_sink_filter("file", f_no, module_rules),
             mode="a",
             enqueue=start_with_enqueue,
         )

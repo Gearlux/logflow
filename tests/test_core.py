@@ -3,7 +3,19 @@ import time
 from pathlib import Path
 from typing import Any
 
+import pytest
+from loguru import logger
+
 from logflow.core import configure_logging, get_logger, shutdown_logging
+
+
+def _emit(name: str, level: str, msg: str) -> None:
+    """Emit a log record with a forced `record["name"]` so per-logger filtering can be tested."""
+
+    def _patch(record: Any) -> None:
+        record["name"] = name
+
+    logger.patch(_patch).log(level, msg)
 
 
 def test_configure_default(tmp_path: Path) -> None:
@@ -139,3 +151,263 @@ def test_startup_rotation(tmp_path: Path) -> None:
     assert len(rotated_files) == 1
     assert "old content" in rotated_files[0].read_text()
     assert "new content" in (log_dir / "rotate.log").read_text()
+
+
+# --- Per-logger, per-sink level overrides (`module_levels`) -----------------
+
+
+def _write_yaml(path: Path, body: str) -> None:
+    path.write_text(body)
+
+
+def test_module_levels_demotes_logger_on_file_sink(tmp_path: Path) -> None:
+    """Global file_level=DEBUG, override file=WARNING for pkg.a — INFO from pkg.a dropped, INFO from pkg.b kept."""
+    _write_yaml(
+        tmp_path / "logflow.yaml",
+        'file_level: "DEBUG"\nconsole_level: "INFO"\nmodule_levels:\n  "pkg.a":\n    file: WARNING\n',
+    )
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        configure_logging(log_dir=tmp_path / "logs", script_name="demote")
+        _emit("pkg.a", "INFO", "from-a-info")
+        _emit("pkg.a", "WARNING", "from-a-warn")
+        _emit("pkg.b", "INFO", "from-b-info")
+        shutdown_logging()
+
+        text = (tmp_path / "logs" / "demote.log").read_text()
+        assert "from-a-info" not in text
+        assert "from-a-warn" in text
+        assert "from-b-info" in text
+    finally:
+        os.chdir(old_cwd)
+
+
+def test_module_levels_per_sink_split(tmp_path: Path) -> None:
+    """Override console=ERROR, file=DEBUG for same logger — INFO appears in file but not console."""
+    _write_yaml(
+        tmp_path / "logflow.yaml",
+        (
+            'file_level: "DEBUG"\n'
+            'console_level: "INFO"\n'
+            "module_levels:\n"
+            '  "pkg.split":\n'
+            "    console: ERROR\n"
+            "    file: DEBUG\n"
+        ),
+    )
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        configure_logging(log_dir=tmp_path / "logs", script_name="split")
+        _emit("pkg.split", "INFO", "split-info")
+        _emit("pkg.split", "DEBUG", "split-debug")
+        shutdown_logging()
+
+        text = (tmp_path / "logs" / "split.log").read_text()
+        # File sink: DEBUG threshold for this logger, so both lines pass.
+        assert "split-info" in text
+        assert "split-debug" in text
+    finally:
+        os.chdir(old_cwd)
+
+
+def test_module_levels_promotes_above_global(tmp_path: Path) -> None:
+    """Global file_level=INFO, override file=DEBUG for pkg.a — DEBUG from pkg.a written, DEBUG from pkg.b dropped."""
+    _write_yaml(
+        tmp_path / "logflow.yaml",
+        'file_level: "INFO"\nconsole_level: "INFO"\nmodule_levels:\n  "pkg.a":\n    file: DEBUG\n',
+    )
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        configure_logging(log_dir=tmp_path / "logs", script_name="promote")
+        _emit("pkg.a", "DEBUG", "a-debug")
+        _emit("pkg.b", "DEBUG", "b-debug")
+        _emit("pkg.b", "INFO", "b-info")
+        shutdown_logging()
+
+        text = (tmp_path / "logs" / "promote.log").read_text()
+        assert "a-debug" in text
+        assert "b-debug" not in text
+        assert "b-info" in text
+    finally:
+        os.chdir(old_cwd)
+
+
+def test_module_levels_workers_only_no_effect_in_main(tmp_path: Path) -> None:
+    """workers_only=true rule is a no-op when current_process().name == 'MainProcess'."""
+    _write_yaml(
+        tmp_path / "logflow.yaml",
+        (
+            'file_level: "DEBUG"\n'
+            "module_levels:\n"
+            '  "pkg.workeronly":\n'
+            "    file: WARNING\n"
+            "    workers_only: true\n"
+        ),
+    )
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        configure_logging(log_dir=tmp_path / "logs", script_name="wo_main")
+        _emit("pkg.workeronly", "INFO", "main-info")
+        shutdown_logging()
+
+        text = (tmp_path / "logs" / "wo_main.log").read_text()
+        assert "main-info" in text
+    finally:
+        os.chdir(old_cwd)
+
+
+def test_module_levels_workers_only_applies_in_child(tmp_path: Path, monkeypatch: Any) -> None:
+    """workers_only=true rule fires when current_process().name != 'MainProcess'."""
+    _write_yaml(
+        tmp_path / "logflow.yaml",
+        (
+            'file_level: "DEBUG"\n'
+            "module_levels:\n"
+            '  "pkg.workeronly":\n'
+            "    file: WARNING\n"
+            "    workers_only: true\n"
+        ),
+    )
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        # Patch current_process BEFORE configure_logging so the filter closure
+        # is built against the real function, and the patch is visible at
+        # record-emission time (the filter calls current_process() per record).
+        import logflow.core
+
+        class _FakeProc:
+            name = "Worker-1"
+
+        monkeypatch.setattr(logflow.core, "current_process", lambda: _FakeProc())
+
+        configure_logging(log_dir=tmp_path / "logs", script_name="wo_child")
+        _emit("pkg.workeronly", "INFO", "child-info")
+        _emit("pkg.workeronly", "WARNING", "child-warn")
+        _emit("pkg.other", "INFO", "other-info")
+        shutdown_logging()
+
+        text = (tmp_path / "logs" / "wo_child.log").read_text()
+        assert "child-info" not in text
+        assert "child-warn" in text
+        assert "other-info" in text
+    finally:
+        os.chdir(old_cwd)
+
+
+def test_module_levels_longest_prefix_wins(tmp_path: Path) -> None:
+    """Keys 'pkg' (WARNING) and 'pkg.sub' (DEBUG) — DEBUG record from pkg.sub.mod passes."""
+    _write_yaml(
+        tmp_path / "logflow.yaml",
+        (
+            'file_level: "DEBUG"\n'
+            "module_levels:\n"
+            '  "pkg":\n'
+            "    file: WARNING\n"
+            '  "pkg.sub":\n'
+            "    file: DEBUG\n"
+        ),
+    )
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        configure_logging(log_dir=tmp_path / "logs", script_name="longest")
+        _emit("pkg.sub.mod", "DEBUG", "submod-debug")  # matches longer "pkg.sub" → DEBUG threshold
+        _emit("pkg.other", "DEBUG", "other-debug")  # matches only "pkg" → WARNING threshold
+        _emit("pkg.other", "WARNING", "other-warn")
+        shutdown_logging()
+
+        text = (tmp_path / "logs" / "longest.log").read_text()
+        assert "submod-debug" in text
+        assert "other-debug" not in text
+        assert "other-warn" in text
+    finally:
+        os.chdir(old_cwd)
+
+
+def test_module_levels_prefix_does_not_match_substring(tmp_path: Path) -> None:
+    """Key 'foo' must NOT silence logs from 'foobar.baz'."""
+    _write_yaml(
+        tmp_path / "logflow.yaml",
+        'file_level: "DEBUG"\nmodule_levels:\n  "foo":\n    file: ERROR\n',
+    )
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        configure_logging(log_dir=tmp_path / "logs", script_name="substr")
+        _emit("foobar.baz", "INFO", "foobar-info")  # must NOT match "foo"
+        _emit("foo.child", "INFO", "foo-child-info")  # must match
+        _emit("foo", "INFO", "foo-info")  # exact match
+        shutdown_logging()
+
+        text = (tmp_path / "logs" / "substr.log").read_text()
+        assert "foobar-info" in text
+        assert "foo-child-info" not in text
+        assert "foo-info" not in text
+    finally:
+        os.chdir(old_cwd)
+
+
+def test_module_levels_invalid_level_raises(tmp_path: Path) -> None:
+    _write_yaml(
+        tmp_path / "logflow.yaml",
+        'file_level: "DEBUG"\nmodule_levels:\n  "pkg.a":\n    file: BOGUS\n',
+    )
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        with pytest.raises(ValueError, match="BOGUS"):
+            configure_logging(log_dir=tmp_path / "logs", script_name="bad_level")
+    finally:
+        os.chdir(old_cwd)
+
+
+def test_module_levels_unknown_subkey_raises(tmp_path: Path) -> None:
+    """Typo guard — silent ignores are how this feature rotted unimplemented."""
+    _write_yaml(
+        tmp_path / "logflow.yaml",
+        'file_level: "DEBUG"\nmodule_levels:\n  "pkg.a":\n    file: INFO\n    file_level: INFO\n',
+    )
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        with pytest.raises(ValueError, match="file_level"):
+            configure_logging(log_dir=tmp_path / "logs", script_name="typo")
+    finally:
+        os.chdir(old_cwd)
+
+
+def test_module_levels_absent_is_no_op(tmp_path: Path) -> None:
+    """Config without `module_levels` behaves exactly as before."""
+    _write_yaml(tmp_path / "logflow.yaml", 'file_level: "DEBUG"\nconsole_level: "INFO"\n')
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        configure_logging(log_dir=tmp_path / "logs", script_name="noop")
+        _emit("anything.at.all", "INFO", "noop-info")
+        _emit("anything.at.all", "DEBUG", "noop-debug")
+        shutdown_logging()
+
+        text = (tmp_path / "logs" / "noop.log").read_text()
+        assert "noop-info" in text
+        assert "noop-debug" in text
+    finally:
+        os.chdir(old_cwd)
+
+
+def test_module_levels_requires_at_least_one_sink(tmp_path: Path) -> None:
+    _write_yaml(
+        tmp_path / "logflow.yaml",
+        'file_level: "DEBUG"\nmodule_levels:\n  "pkg.a":\n    workers_only: true\n',
+    )
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        with pytest.raises(ValueError, match="at least one"):
+            configure_logging(log_dir=tmp_path / "logs", script_name="empty_rule")
+    finally:
+        os.chdir(old_cwd)

@@ -51,3 +51,40 @@ file_level: "DEBUG"
 # Default: "INFO"
 # Env: LOGFLOW_CONSOLE_LEVEL
 console_level: "INFO"
+
+# --- Per-logger, per-sink Level Overrides ---
+#
+# Override the global file_level / console_level for specific loggers, keyed
+# by the calling module's dotted name (matched against loguru's record["name"]).
+#
+# Matching rules:
+#   - Dotted-segment prefix: "pkg.sub" matches "pkg.sub", "pkg.sub.mod", but
+#     NOT "pkg.subway". A bare "foo" does not match "foobar.baz".
+#   - Longest matching prefix wins (most specific). YAML order is irrelevant.
+#
+# Per-rule fields (at least one of `console` / `file` is required):
+#   console:      Override the console-sink threshold for this logger.
+#   file:         Override the file-sink   threshold for this logger.
+#   workers_only: If true, the override applies only in non-MainProcess
+#                 processes (e.g. PyTorch DataLoader workers). Useful for
+#                 silencing noisy first-time discovery logs that each worker
+#                 re-emits while keeping the main-process log informative.
+#
+# Unknown sub-keys and invalid levels raise at startup (no silent ignores).
+#
+# module_levels:
+#   # Demote a chatty logger to WARNING on the file sink, in workers only:
+#   "waivefront.rfuav.data.archive":
+#     file: WARNING
+#     workers_only: true
+#
+#   # Per-sink split + promotion below the global console_level:
+#   "noisy.lib.but.useful.in.debug":
+#     console: ERROR    # quiet on screen
+#     file: DEBUG       # but keep full detail on disk (below global file_level if any)
+#
+#   # Longest-prefix-wins example: "pkg.sub" overrides "pkg" for records under pkg.sub.*
+#   "pkg":
+#     file: WARNING
+#   "pkg.sub":
+#     file: DEBUG

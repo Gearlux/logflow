@@ -6,6 +6,7 @@
 - **Framework Interception:** Standard Python `logging`, TensorFlow, PyTorch, and JAX logs MUST be automatically intercepted and routed through LogFlow.
 - **Zero-Blocking:** Logging MUST never block the training critical path. Background sinking is mandatory.
 - **Configuration Hierarchy:** Resolution order: function args > env vars (`LOGFLOW_`) > local YAML > local pyproject.toml > XDG global config > defaults. Never violate this precedence.
+- **Per-logger Levels (`module_levels`):** Per-sink, per-logger overrides live at the same precedence layer as `file_level` / `console_level` — no new layer. Schema is a nested dict keyed by dotted logger-name prefix; per-rule fields (`console`, `file`, `workers_only`) MUST fail-fast on unknown keys or invalid level strings. Silent ignores are how this feature rotted unimplemented for months — never reintroduce them.
 
 ## Testing & Validation
 - **No Sleep Loops:** NEVER use `time.sleep()` for synchronization. Use `logger.complete()`, `join()`, or `close()`.
