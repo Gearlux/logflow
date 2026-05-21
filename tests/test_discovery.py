@@ -54,9 +54,7 @@ def test_determine_script_name_argv() -> None:
     old_argv = sys.argv
     sys.argv = ["/path/to/my_script.py"]
     # Mock sys.modules['__main__'] to not have a package/spec
-    with patch.dict(
-        sys.modules, {"__main__": type("Module", (), {"__package__": None})()}
-    ):
+    with patch.dict(sys.modules, {"__main__": type("Module", (), {"__package__": None})()}):
         try:
             name = determine_script_name()
             assert name == "my_script"
@@ -120,9 +118,7 @@ def test_determine_script_name_flag() -> None:
     old_argv = sys.argv
     sys.argv = ["-m"]  # Obvious flag
     # Force MainProcess check to pass
-    with patch.dict(
-        sys.modules, {"__main__": type("Module", (), {"__package__": None})()}
-    ):
+    with patch.dict(sys.modules, {"__main__": type("Module", (), {"__package__": None})()}):
         try:
             name = determine_script_name()
             assert isinstance(name, str)
