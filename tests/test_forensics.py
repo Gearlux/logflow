@@ -30,7 +30,9 @@ def test_pivot_and_rotate_handoff(tmp_path: Path) -> None:
 
     convert_log = log_dir / "convert.log"
     assert convert_log.exists()
-    assert not wf_log.exists(), "wf.log should have been pivoted (renamed) to convert.log"
+    assert (
+        not wf_log.exists()
+    ), "wf.log should have been pivoted (renamed) to convert.log"
 
     # 3. Check content
     content = convert_log.read_text()
@@ -51,7 +53,9 @@ def test_retention_enforcement(tmp_path: Path) -> None:
         p.write_text(f"old log {i}")
         os.utime(p, (time.time() - (100 - i), time.time() - (100 - i)))
 
-    logflow.core.configure_logging(log_dir=log_dir, script_name="test", retention=2, force=True)
+    logflow.core.configure_logging(
+        log_dir=log_dir, script_name="test", retention=2, force=True
+    )
 
     remaining_files = list(log_dir.glob("*.log"))
     assert len(remaining_files) <= 2
@@ -71,7 +75,9 @@ def test_retention_decrease_cleanup(tmp_path: Path) -> None:
 
     assert len(list(log_dir.glob("*.log"))) == 5
 
-    logflow.core.configure_logging(log_dir=log_dir, script_name="final_run", retention=2, force=True)
+    logflow.core.configure_logging(
+        log_dir=log_dir, script_name="final_run", retention=2, force=True
+    )
 
     remaining = list(log_dir.glob("*.log"))
     assert len(remaining) <= 2

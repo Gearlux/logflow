@@ -36,7 +36,9 @@ class TestLazyEnqueue:
         assert LoggingState.file_sink_id is not None
         assert _peek_enqueue_state(LoggingState.file_sink_id) is False
 
-    def test_enqueue_false_never_allocates_or_installs_hook(self, tmp_path: Path) -> None:
+    def test_enqueue_false_never_allocates_or_installs_hook(
+        self, tmp_path: Path
+    ) -> None:
         configure_logging(log_dir=tmp_path, script_name="off", enqueue=False)
         assert LoggingState.enqueue_requested is False
         assert LoggingState.enqueue_active is False
@@ -44,7 +46,9 @@ class TestLazyEnqueue:
         # can't easily un-install one from a previous test, so just assert
         # that requested=False.
 
-    def test_eager_env_var_forces_immediate_allocation(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_eager_env_var_forces_immediate_allocation(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         # Capture the kwargs loguru.add() is called with — verifying the
         # params is enough; we don't need a real semaphore to land on disk.
         recorded: list[dict] = []
@@ -63,7 +67,9 @@ class TestLazyEnqueue:
         file_sinks = [k for k in recorded if "sink" in k]
         assert any(k["enqueue"] is True for k in file_sinks)
 
-    def test_upgrade_swaps_handler_to_enqueue_mode(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_upgrade_swaps_handler_to_enqueue_mode(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         recorded: list[dict] = []
         next_id = [1000]
 
@@ -89,10 +95,16 @@ class TestLazyEnqueue:
         assert LoggingState.enqueue_active is True
         assert LoggingState.file_sink_id != sink_id_before
         # An add with enqueue=True must have happened during the upgrade
-        post_upgrade_adds = [k for k in recorded[recorded.index({"_remove": sink_id_before}) :] if "sink" in k]
+        post_upgrade_adds = [
+            k
+            for k in recorded[recorded.index({"_remove": sink_id_before}) :]
+            if "sink" in k
+        ]
         assert any(k["enqueue"] is True for k in post_upgrade_adds)
 
-    def test_upgrade_is_idempotent(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_upgrade_is_idempotent(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         next_id = [2000]
 
         def fake_add(*args: Any, **kwargs: Any) -> int:
@@ -117,7 +129,9 @@ class TestLazyEnqueue:
         assert LoggingState.enqueue_active is False
         assert LoggingState.file_sink_id == sink_id
 
-    def test_process_construction_triggers_upgrade(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_process_construction_triggers_upgrade(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         # Stub _upgrade_to_enqueue so we don't actually allocate the semaphore
         # (the kernel pool may be exhausted in this environment, and the
         # contract under test is "the hook fires", not "the OS call succeeds").

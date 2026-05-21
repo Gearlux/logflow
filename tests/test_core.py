@@ -260,7 +260,9 @@ def test_module_levels_workers_only_no_effect_in_main(tmp_path: Path) -> None:
         os.chdir(old_cwd)
 
 
-def test_module_levels_workers_only_applies_in_child(tmp_path: Path, monkeypatch: Any) -> None:
+def test_module_levels_workers_only_applies_in_child(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
     """workers_only=true rule fires when current_process().name != 'MainProcess'."""
     _write_yaml(
         tmp_path / "logflow.yaml",
@@ -316,8 +318,12 @@ def test_module_levels_longest_prefix_wins(tmp_path: Path) -> None:
     os.chdir(tmp_path)
     try:
         configure_logging(log_dir=tmp_path / "logs", script_name="longest")
-        _emit("pkg.sub.mod", "DEBUG", "submod-debug")  # matches longer "pkg.sub" → DEBUG threshold
-        _emit("pkg.other", "DEBUG", "other-debug")  # matches only "pkg" → WARNING threshold
+        _emit(
+            "pkg.sub.mod", "DEBUG", "submod-debug"
+        )  # matches longer "pkg.sub" → DEBUG threshold
+        _emit(
+            "pkg.other", "DEBUG", "other-debug"
+        )  # matches only "pkg" → WARNING threshold
         _emit("pkg.other", "WARNING", "other-warn")
         shutdown_logging()
 
@@ -383,7 +389,9 @@ def test_module_levels_unknown_subkey_raises(tmp_path: Path) -> None:
 
 def test_module_levels_absent_is_no_op(tmp_path: Path) -> None:
     """Config without `module_levels` behaves exactly as before."""
-    _write_yaml(tmp_path / "logflow.yaml", 'file_level: "DEBUG"\nconsole_level: "INFO"\n')
+    _write_yaml(
+        tmp_path / "logflow.yaml", 'file_level: "DEBUG"\nconsole_level: "INFO"\n'
+    )
     old_cwd = os.getcwd()
     os.chdir(tmp_path)
     try:

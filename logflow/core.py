@@ -142,7 +142,9 @@ def _parse_module_levels(cfg: Dict[str, Any]) -> List[ModuleLevelRule]:
     rules: List[ModuleLevelRule] = []
     for prefix, entry in raw.items():
         if not isinstance(prefix, str) or not prefix:
-            raise ValueError(f"module_levels: prefix keys must be non-empty strings, got {prefix!r}")
+            raise ValueError(
+                f"module_levels: prefix keys must be non-empty strings, got {prefix!r}"
+            )
         if not isinstance(entry, dict):
             raise ValueError(
                 f"module_levels[{prefix!r}]: expected a mapping with keys {sorted(_VALID_RULE_KEYS)}, "
@@ -157,7 +159,9 @@ def _parse_module_levels(cfg: Dict[str, Any]) -> List[ModuleLevelRule]:
         c = entry.get("console")
         f = entry.get("file")
         if c is None and f is None:
-            raise ValueError(f"module_levels[{prefix!r}]: must set at least one of 'console' or 'file'")
+            raise ValueError(
+                f"module_levels[{prefix!r}]: must set at least one of 'console' or 'file'"
+            )
         workers_only = entry.get("workers_only", False)
         if not isinstance(workers_only, bool):
             raise ValueError(
@@ -166,8 +170,16 @@ def _parse_module_levels(cfg: Dict[str, Any]) -> List[ModuleLevelRule]:
         rules.append(
             ModuleLevelRule(
                 prefix=prefix,
-                console_no=_level_no(c, f"module_levels[{prefix!r}].console") if c is not None else None,
-                file_no=_level_no(f, f"module_levels[{prefix!r}].file") if f is not None else None,
+                console_no=(
+                    _level_no(c, f"module_levels[{prefix!r}].console")
+                    if c is not None
+                    else None
+                ),
+                file_no=(
+                    _level_no(f, f"module_levels[{prefix!r}].file")
+                    if f is not None
+                    else None
+                ),
                 workers_only=workers_only,
             )
         )
@@ -220,22 +232,38 @@ def _purge_old_files(candidates: List[Path], keep: int) -> None:
 
 def _rotate(path: Path, retention: int = 5) -> None:
     """Manual rotation of an existing log file (Main process only)."""
-    if not path.exists() or path.stat().st_size == 0 or discovery.get_rank() not in (None, 0):
+    if (
+        not path.exists()
+        or path.stat().st_size == 0
+        or discovery.get_rank() not in (None, 0)
+    ):
         return
 
-    timestamp = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.fromtimestamp(path.stat().st_mtime).strftime(
+        "%Y-%m-%d_%H-%M-%S"
+    )
     rotated_path = path.parent / f"{path.stem}.{timestamp}{path.suffix}"
 
     try:
         path.rename(rotated_path)
-        pattern = re.escape(path.stem) + r"\.\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}" + re.escape(path.suffix)
-        candidates = [p for p in path.parent.iterdir() if p.is_file() and re.fullmatch(pattern, p.name)]
+        pattern = (
+            re.escape(path.stem)
+            + r"\.\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+            + re.escape(path.suffix)
+        )
+        candidates = [
+            p
+            for p in path.parent.iterdir()
+            if p.is_file() and re.fullmatch(pattern, p.name)
+        ]
         _purge_old_files(candidates, retention)
     except Exception as e:
         warnings.warn(f"LogFlow: Failed to rotate log file {path}: {e}")
 
 
-def _perform_pivot(current_log: Path, new_log: Path, do_rotation: bool, retention: int) -> None:
+def _perform_pivot(
+    current_log: Path, new_log: Path, do_rotation: bool, retention: int
+) -> None:
     """Transition from an interim log file to a final target file."""
     logger.remove()
     try:
@@ -251,7 +279,9 @@ def _perform_pivot(current_log: Path, new_log: Path, do_rotation: bool, retentio
             shutil.copy2(current_log, new_log)
             current_log.unlink()
         except Exception as e:
-            warnings.warn(f"LogFlow: Failed to pivot logs from {current_log} to {new_log}: {e}")
+            warnings.warn(
+                f"LogFlow: Failed to pivot logs from {current_log} to {new_log}: {e}"
+            )
     LoggingState.configured = False
 
 
@@ -293,8 +323,12 @@ def configure_logging(
     log_dir_path = Path(log_dir_val).expanduser().resolve()
     log_dir_path.mkdir(parents=True, exist_ok=True)
 
-    f_level = str(resolve(file_level, "LOGFLOW_FILE_LEVEL", "file_level", "DEBUG")).upper()
-    c_level = str(resolve(console_level, "LOGFLOW_CONSOLE_LEVEL", "console_level", "INFO")).upper()
+    f_level = str(
+        resolve(file_level, "LOGFLOW_FILE_LEVEL", "file_level", "DEBUG")
+    ).upper()
+    c_level = str(
+        resolve(console_level, "LOGFLOW_CONSOLE_LEVEL", "console_level", "INFO")
+    ).upper()
     f_no = _level_no(f_level, "file_level")
     c_no = _level_no(c_level, "console_level")
     module_rules = _parse_module_levels(cfg)
@@ -309,7 +343,9 @@ def configure_logging(
     )
     enqueue_val = str_to_bool(resolve(enqueue, "LOGFLOW_ENQUEUE", "enqueue", False))
 
-    target_name = discovery.determine_script_name(resolve(script_name, "LOGFLOW_SCRIPT_NAME", "script_name", None))
+    target_name = discovery.determine_script_name(
+        resolve(script_name, "LOGFLOW_SCRIPT_NAME", "script_name", None)
+    )
     new_log_file = log_dir_path / f"{target_name}.log"
 
     # 2. PIVOT & ROTATION
@@ -340,7 +376,8 @@ def configure_logging(
             )
 
         file_fmt = (
-            "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | " "{extra[rank_tag]}{name}:{function}:{line} | {message}"
+            "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | "
+            "{extra[rank_tag]}{name}:{function}:{line} | {message}"
         )
         # Lazy-enqueue: when the user asks for ``enqueue=True``, defer the
         # multiprocessing queue (and its POSIX semaphore) until something
@@ -376,10 +413,16 @@ def configure_logging(
     if is_main_proc:
         os.environ["LOGFLOW_SCRIPT_NAME"] = target_name
 
-        all_logs = [f for f in log_dir_path.glob("*.log") if f.is_file() and f.resolve() != new_log_file.resolve()]
+        all_logs = [
+            f
+            for f in log_dir_path.glob("*.log")
+            if f.is_file() and f.resolve() != new_log_file.resolve()
+        ]
         _purge_old_files(all_logs, max(retention_val - 1, 0))
 
-        logger.info(f"LogFlow {'Re-' if was_cfg else ''}initialized: {new_log_file.name}")
+        logger.info(
+            f"LogFlow {'Re-' if was_cfg else ''}initialized: {new_log_file.name}"
+        )
 
 
 def shutdown_logging() -> None:

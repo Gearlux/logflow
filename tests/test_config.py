@@ -77,7 +77,9 @@ def test_xdg_config_path_default() -> None:
     assert ".config/logflow" in str(path)
 
 
-def test_load_config_corrupt_yaml(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+def test_load_config_corrupt_yaml(
+    tmp_path: Path, monkeypatch: "pytest.MonkeyPatch"
+) -> None:
     # Create invalid YAML
     logflow_yaml = tmp_path / "logflow.yaml"
     logflow_yaml.write_bytes(b"\x00\x01\x02")  # Binary data is invalid YAML
@@ -96,7 +98,9 @@ def test_load_config_corrupt_yaml(tmp_path: Path, monkeypatch: "pytest.MonkeyPat
         os.chdir(old_cwd)
 
 
-def test_load_config_pyproject_missing_tool(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+def test_load_config_pyproject_missing_tool(
+    tmp_path: Path, monkeypatch: "pytest.MonkeyPatch"
+) -> None:
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text("[tool.something_else]\nkey = 'value'")
 
@@ -113,7 +117,9 @@ def test_load_config_pyproject_missing_tool(tmp_path: Path, monkeypatch: "pytest
         os.chdir(old_cwd)
 
 
-def test_load_config_corrupt_toml(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+def test_load_config_corrupt_toml(
+    tmp_path: Path, monkeypatch: "pytest.MonkeyPatch"
+) -> None:
     pyproject = tmp_path / "pyproject.toml"
     # Write invalid TOML (unquoted string or similar)
     pyproject.write_text("[tool.logflow]\nkey = value_without_quotes")
